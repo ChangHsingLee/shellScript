@@ -10,3 +10,6 @@ echo "abc3.def.gg3" | sed -E 's/(\w)(\w*)/\U\1\L\2/g; s/\.//g'
 
 # change character ':', '/' or '-' to '.' in string
 echo "test/string-1234" | sed 's/[\/:-]/\./g'
+
+#
+echo 'eqid           = "test_id"' | sed '/eqid.*=/ s/=.*/"New ID"/g'
