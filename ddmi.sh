@@ -183,35 +183,3 @@ D*)
 	exitProgram $EINVAL "Unknown operation '$1'! Must be 'read', 'write' or 'dump'!"
 esac
 exitProgram 0
-
-# get current model name from A2h 0xFF table byte 0x80~??
-backupValue=$(i2cget -y $I2C_BUS_NO $A2H_ADDR $PAGE_SELECT_ADDR)
-[ -z "$backupValue" ] && exitProgram 2 "i2cget: fail to access I2C bus$I2C_BUS_NO"
-i2cset -y $I2C_BUS_NO $A2H_ADDR $PAGE_SELECT_ADDR 0xFF
-model=$(i2cdump -y -r $CHIP_INFO_SADDR-$CHIP_INFO_EADDR $I2C_BUS_NO $A2H_ADDR b | awk 'NR==2 {print $NF}' | sed 's/\.//g')
-if [ -z "$model" ]; then
-	echo;echo "Fail to get chip info, it seems that address A2h table 0xFF be protected!";echo
-	i2cdump -y $I2C_BUS_NO $A2H_ADDR b
-	i2cset -y $I2C_BUS_NO $A2H_ADDR $PAGE_SELECT_ADDR $backupValue
-	exitProgram 3 
-fi
-i2cset -y $I2C_BUS_NO $A2H_ADDR $PAGE_SELECT_ADDR $backupValue
-
-# To check that current model is supported by tool 'transceiver' or not.
-TMPFILE=$(mktemp -t $(basename $0)-run.XXXXXX)
-transceiver list > $TMPFILE 2>&-
-while read -r id vendor s_model; do
-	id=$(str2val $id)
-	if [ -n "$s_model" -a -n "$id" ]; then
-		if [ -n "$(echo $model | awk '$0 ~ /'$s_model'/ { print }')" ]; then
-			rmmod $DRIVER_NAME &>/dev/null
-			modprobe $DRIVER_NAME major=$DEV_MAJOR_NO chip_type=$id
-			rm -f /dev/$DEVICE_NODE_NAME
-			mknod /dev/$DEVICE_NODE_NAME c $DEV_MAJOR_NO 0
-			rm -f $TMPFILE
-			exitProgram 0 "LA/LDD: $vendor $model, Type ID: $id"
-		fi
-	fi
-done < $TMPFILE
-rm -f $TMPFILE
-exitProgram 4 "Chip $mode is not supported by tool 'transceiver'"
