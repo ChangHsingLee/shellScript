@@ -161,17 +161,17 @@ W*)
 	;;
 D*)
 	# dump
+	dumpEndAddr=255
 	if [ -z "$2" ]; then
 		dumpStartAddr=0
-		dumpEndAddr=255
 	else
 		dumpStartAddr=$(str2val $2)
 		[ -z "$dumpStartAddr" ] && exitProgram $EINVAL "Invalid value '$2' for parameter 'addr'!"
-		dumpEndAddr=$((255-dumpStartAddr))
 		if [ -n "$3" ]; then
 			dumpEndAddr=$(str2val $3)
 			[ -z "$dumpEndAddr" ] && exitProgram $EINVAL "Invalid value '$3' for parameter len!"
 			dumpEndAddr=$((dumpStartAddr+dumpEndAddr-1))
+			[ $dumpEndAddr -gt 255 ] && dumpEndAddr=255
 		fi
 	fi
 	echo;printf "%s %s\n" $i2cAddrStr "$([ -n "$tableNo" ] && printf "Table %02Xh" $tableNo)"  
