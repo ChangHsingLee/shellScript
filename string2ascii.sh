@@ -1,5 +1,5 @@
 #!/bin/sh
-str2ASCII() {
+str2ascii() {
         local strLen
         local i
         strLen=${#1}
@@ -10,3 +10,5 @@ str2ASCII() {
                 strLen=$((strLen-1))
         done
 }
+
+#str2ascii $1
