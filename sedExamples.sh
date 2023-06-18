@@ -11,5 +11,14 @@ echo "abc3.def.gg3" | sed -E 's/(\w)(\w*)/\U\1\L\2/g; s/\.//g'
 # change character ':', '/' or '-' to '.' in string
 echo "test/string-1234" | sed 's/[\/:-]/\./g'
 
-#
-echo 'eqid           = "test_id"' | sed '/eqid.*=/ s/=.*/"New ID"/g'
+# 
+echo 'eqid           = "test_id"' | sed '/eqid.*=/ s/=.*/= "New ID"/g'
+
+# Print lines between two patterns (refer to https://www.baeldung.com/linux/print-lines-between-two-patterns)
+# Syntax: sed -n /Pattern1/, /Pattern2/{ commands... }
+# Printing the Data Blocks Including Both Boundaries
+sed -n '/Pattern1/, /Pattern2/p' input.txt
+# Printing the Data Blocks Excluding Both Boundaries
+sed -n '/Pattern1/, /Pattern2/{ /Pattern1/! { /Pattern2/! p } }' input.txt
+# Printing the Data Blocks Excluding Lines which including 3th pattern
+sed -n '/Pattern1/, /Pattern2/{ /Pattern3/!p }' input.txt
