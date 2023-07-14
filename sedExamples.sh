@@ -23,4 +23,4 @@ sed -n '/Pattern1/, /Pattern2/{ /Pattern1/! { /Pattern2/! p } }' input.txt
 # Printing the Data Blocks Excluding Lines which including 3th pattern
 sed -n '/Pattern1/, /Pattern2/{ /Pattern3/!p }' input.txt
 # cat string between '<' and '>'
-echo "for test <MyTest String>" | sed -n 's/.*<\(.*\)>/\1/p'
+echo "for test <MyTest String>!!!" | sed -n 's/.*<\(.*\)>.*/\1/p'
