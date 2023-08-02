@@ -24,3 +24,5 @@ sed -n '/Pattern1/, /Pattern2/{ /Pattern1/! { /Pattern2/! p } }' input.txt
 sed -n '/Pattern1/, /Pattern2/{ /Pattern3/!p }' input.txt
 # cat string between '<' and '>'
 echo "for test <MyTest String>!!!" | sed -n 's/.*<\(.*\)>.*/\1/p'
+echo "for test <MyTest String>!!!" | sed -r 's/.*<(.*)>.*/\1/'
+echo "for test <MyTest String1>!!!<MyTest String2>QQQ" | sed -r 's/.*<(.*)>.*<(.*)>.*/\1 \2/'
