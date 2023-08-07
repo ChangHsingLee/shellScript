@@ -59,7 +59,7 @@ num_to_ipv4() {
 }
 
 valid_netmask() {
-    [ -z $(echo $1 | grep -E '^(254|252|248|240|224|192|128)\.0\.0\.0|255\.(254|252|248|240|224|192|128|0)\.0\.0|255\.255\.(254|252|248|240|224|192|128|0)\.0|255\.255\.255\.(254|252|248|240|224|192|128|0)') ] && \
+    [ -z $(echo $1 | grep -E '^(254|252|248|240|224|192|128|0)\.0\.0\.0|255\.(254|252|248|240|224|192|128|0)\.0\.0|255\.255\.(254|252|248|240|224|192|128|0)\.0|255\.255\.255\.(255|254|252|248|240|224|192|128|0)$') ] && \
          return 1
     return 0
 }
@@ -89,7 +89,7 @@ netmask_to_cidr() {
 # arg2: variable name which is used to stores IP address
 # arg3: variable name which is used to stores netmask
 # usage: parseCIDR 192.168.0.1/24 ipaddr netmask
-#        parseCIDR 192.168.0.1/24
+#        example: 192.168.0.1/24
 parseCIDR() {
     local ip mask cidr
     IFS=/ read ip cidr <<__END__
@@ -135,7 +135,7 @@ broadcastIP() {
 
 updateNetworkCfgFile() {
     [ ! -f /etc/network/interfaces ] && return 0
-    sed -i "/^iface eth0 inet/{n;s/address.*/address $ipaddr/;n;s/netmask.*/netmask $netmask/;n;s/broadcast.*/broadcast $broadcast/}" /etc/network/interfaces
+    sed -i "/^iface $ETH_DEV inet/{n;s/address.*/address $ipaddr/;n;s/netmask.*/netmask $netmask/;n;s/broadcast.*/broadcast $broadcast/}" /etc/network/interfaces
 }
 
 showInfo() {
