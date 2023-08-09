@@ -1,11 +1,31 @@
 #!/bin/sh
 
+# Color
 C_GRAY="\e[37m"
 C_RED="\e[91m"
 C_GREEN="\e[92m"
 C_YELLOW="\e[93m"
 C_BLUE="\e[94m"
 C_END="\e[0m"
+
+# return/error code, 0 is OK/successful
+# Unknown internal error
+EINTERNAL=1
+# IO error
+EIO=2
+# Invalid argument
+EINVAL=3
+# Permission denied
+EACCES=4
+# Operation not supported
+ENOSUPPORT=5
+# Operation failed
+EFAULT=6
+# something already exists
+EEXIST=7
+# missing argument
+EMISS=8
+
 
 PROG=$(basename $0)
 
