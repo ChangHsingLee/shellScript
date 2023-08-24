@@ -10,4 +10,4 @@ awk '{print $NF}'
 awk '/cpu /{usage=100-($5*100)/($2+$3+$4+$5+$6+$7+$8)} END {print usage}' /proc/stat
 # calculate memory usage
 free | awk 'FNR==2 { if ($7 == 0) usage=($2-($4+$6))*100/$2; else usage=($2-$7)*100/$2;} END { printf ("%.2f\%\n",usage) }'
-
+free|awk 'FNR==2{if($7 == 0) free=$4+$6;else free=$7;usage=($2-free)*100/$2} END {printf("%.2f\%\n", usage)}'
