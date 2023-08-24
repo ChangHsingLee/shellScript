@@ -6,3 +6,5 @@ awk -i inplace 'NR==3{$1="'$flashImg'"};1' $CONF_FILE
 docker images | awk 'NR>1 && $1=="ubuntu" && $2=="xenial" {printf "%s:%s\n", $1, $2}'
 # show last field
 awk '{print $NF}'
+# calculate CPU usage
+awk '/cpu /{usage=100-($5*100)/($2+$3+$4+$5+$6+$7+$8)} END {print usage}' /proc/stat
