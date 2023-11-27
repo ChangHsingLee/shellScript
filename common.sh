@@ -146,3 +146,7 @@ showProgressSign() {
     return $result
 }
 
+# extract number, decimal point & minus sign from string
+extractNumber() {
+	echo $1 | tr -d -c 0-9.\-
+}
