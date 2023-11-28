@@ -150,3 +150,14 @@ showProgressSign() {
 extractNumber() {
 	echo $1 | tr -d -c 0-9.\-
 }
+
+# get last char.
+getLastChar() {
+	local str=$1
+	echo ${str: -1}
+}
+# ignore last char.
+ignoreLastChar() {
+	local str=$1
+ 	echo ${str::-1}
+}
