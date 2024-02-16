@@ -13,3 +13,7 @@ free | awk 'FNR==2 { if ($7 == 0) usage=($2-($4+$6))*100/$2; else usage=($2-$7)*
 free|awk 'FNR==2{if($7 == 0) free=$4+$6;else free=$7;usage=($2-free)*100/$2} END {printf("%.2f\%\n", usage)}'
 # use variables
 awk -v line="$line" -v byte="$byte" -v len="$readlen" 'FNR==line {for (i=byte; i<byte+len; i++) print toupper($i)}' $DDM_FILE
+# remove last field, input/output delimiter is whitespace (default delimiter)
+echo "00 11 22 33"|awk '{NF--};1'
+# remove last field, input delimiter is whitespace (default delimiter), output delimiter is ','
+echo "00 11 22 33"|awk '{OFS=",";NF--};1'
