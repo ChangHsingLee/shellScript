@@ -29,4 +29,4 @@ echo "for test <MyTest String1>!!!<MyTest String2>QQQ" | sed -r 's/.*<(.*)>.*<(.
 # to strip the first 5 characters of each line
 sed -i 's/^.\{5\}//g' logfile
 # remove line which start from char. '#'
-grep '^\s*\#' testFile.txt
+sed -i '/^\s*\#/d' testFile.txt
