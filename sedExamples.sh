@@ -26,6 +26,8 @@ sed -n '/Pattern1/, /Pattern2/{ /Pattern3/!p }' input.txt
 echo "for test <MyTest String>!!!" | sed -n 's/.*<\(.*\)>.*/\1/p'
 echo "for test <MyTest String>!!!" | sed -r 's/.*<(.*)>.*/\1/'
 echo "for test <MyTest String1>!!!<MyTest String2>QQQ" | sed -r 's/.*<(.*)>.*<(.*)>.*/\1 \2/'
+# replace string between '{' and '}'
+echo "for test {MyTest String}!!!" | sed -E "s/(.*\{).*(\}.*)/\1String Be Changed\2/g"
 # to strip the first 5 characters of each line
 sed -i 's/^.\{5\}//g' logfile
 # remove line which start from char. '#'
