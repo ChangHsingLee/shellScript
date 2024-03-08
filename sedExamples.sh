@@ -32,3 +32,7 @@ echo "for test {MyTest String}!!!" | sed -E "s/(.*\{).*(\}.*)/\1String Be Change
 sed -i 's/^.\{5\}//g' logfile
 # remove line which start from char. '#'
 sed -i '/^\s*\#/d' testFile.txt
+# insert word or text after position 'n' of each line; example n=7, insert txt="DualFW_", output => IMG000_DualFW_GPT-5610C1_TW_20240308141827.img
+echo IMG000_GPT-5610C1_TW_20240308141827.img | sed 's/./&DualFW_/7'
+# insert word or text after match in middle of the line; example pattern=GPT-5610C1_, insert txt="DualFW_", output => IMG000_GPT-5610C1_DualFW_TW_20240308150642.img
+echo IMG000_GPT-5610C1_TW_20240308150642.img|sed 's/GPT-5610C1_/&DualFW_/'
