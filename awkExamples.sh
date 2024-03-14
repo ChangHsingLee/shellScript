@@ -17,3 +17,5 @@ awk -v line="$line" -v byte="$byte" -v len="$readlen" 'FNR==line {for (i=byte; i
 echo "00 11 22 33"|awk '{NF--};1'
 # remove last field, input delimiter is whitespace (default delimiter), output delimiter is ','
 echo "00 11 22 33"|awk '{OFS=",";NF--};1'
+# replace field #3 by $NEWSTR in line which match to pattern '$PATTERN
+awk -i inplace -v data="$NEWSTR" "/^$PATTERN/{$3=data};1" $FILENAME
