@@ -36,3 +36,5 @@ sed -i '/^\s*\#/d' testFile.txt
 echo IMG000_GPT-5610C1_TW_20240308141827.img | sed 's/./&DualFW_/7'
 # insert word or text after match in middle of the line; example pattern=GPT-5610C1_, insert txt="DualFW_", output => IMG000_GPT-5610C1_DualFW_TW_20240308150642.img
 echo IMG000_GPT-5610C1_TW_20240308150642.img|sed 's/GPT-5610C1_/&DualFW_/'
+# remove trailing characters '0'
+echo "91245d0b00ab000200120400f800000080010000400f0000000800103e02c2b6000000000000000000000000" | sed 's/0*$//'
