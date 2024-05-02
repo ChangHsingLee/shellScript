@@ -38,3 +38,6 @@ echo IMG000_GPT-5610C1_TW_20240308141827.img | sed 's/./&DualFW_/7'
 echo IMG000_GPT-5610C1_TW_20240308150642.img|sed 's/GPT-5610C1_/&DualFW_/'
 # remove trailing characters '0'
 echo "91245d0b00ab000200120400f800000080010000400f0000000800103e02c2b6000000000000000000000000" | sed 's/0*$//'
+# count number of lines
+ sed -n '$=' <file name>
+ 
