@@ -4,12 +4,16 @@
 # arg1: output message
 # arg2: return value
 confirmYesNo() {
-  read -n 1 -p "$1 (y/N): " ans
-  if [ "$ans" == "Y" ] || [  "$ans" == "y" ]; then
-    eval $2="Y"
-  else
-    eval $2="N"
-  fi
+        local confirmYesNo_ans
+        while [ -z $(echo $confirmYesNo_ans|grep '[YyNn]') ]; do
+                read -n 1 -rp "$1 (y/N): " confirmYesNo_ans
+                [ -n "$confirmYesNo_ans" ] && echo
+                if [ "$confirmYesNo_ans" == "Y" ] || [ "$confirmYesNo_ans" == "y" ]; then
+                        eval $2=Y
+                else
+                        eval $2=N
+                fi
+        done
 }
 
 # split parameter name & value (expression exapmle: abc=10, abc:10 or abc 10)
