@@ -1,3 +1,13 @@
+[ -f /etc/MLD_Config.sh ] && \
+    . /etc/MLD_Config.sh
+
+CCC_BACKUP_TMP_CMD_FILE=0
+
+cccBackupTmpCmdFile() {
+    CCC_BACKUP_TMP_CMD_FILE=0
+    [ "$1" == "1" ] && CCC_BACKUP_TMP_CMD_FILE=1
+}
+
 #--- generate temp file in folder /tmp
 # arg1: prefix of filename
 # arg2: return value
@@ -28,6 +38,15 @@ genTmpResultFile() {
     echo $(genTmpFile cccTestResult)
 }
 
+cccRemoveTmpFile() {
+    local backupFile
+    [ $CCC_BACKUP_TMP_CMD_FILE -ne 0 ] && \
+        backupFile=$(genTmpFile cccBackupCMDfile) && \
+        echo "Save ccc command file to $backupFile!" && \
+        mv $1 $backupFile
+    rm -f $1 $2
+}
+
 # arg1: command file
 # arg2: result file
 cccSendCmd() {
@@ -42,13 +61,13 @@ cccSendCmd() {
 #    if cat $2|grep "^.ET\|SEL"|grep -q "fail"; then
 #        return 1
 #    fi
-    echo;echo "Command: $1"
+    echo;echo "Command:"
     cat $1
-    echo;echo "Result:  $2"
+    echo;echo "Result:"
     cat $2
     echo;echo "[ccctest] Execution failed, please check commands!"
     echo
-    rm -f $1 $2
+    cccRemoveTmpFile $1 $2
     return 1
 }
 
@@ -79,6 +98,7 @@ _cccDumpLogFile() {
     local logShowCategory=$2
     local logShowLevel=$3
     local idx=1
+    local line
     local dateTime msgSpace logLevel procObj procID logMsg
     if [ -z "$logFile" ] || [ -z "$logShowCategory" ] || [ -z "logShowLevel" ]; then
         _cccDumpLogFileUsage
@@ -150,7 +170,7 @@ __END__
         eval $2=$value
     fi
     #echo "cmdFile=$cmdFile"
-    rm -f $cmdFile $resultFile
+    cccRemoveTmpFile $cmdFile $resultFile
     return 0
 }
 
@@ -188,7 +208,7 @@ __END__
     if ! cccSendCmd $cmdFile $resultFile; then return 1; fi
     cat $resultFile | grep '^SEL\|^SET\|^SAVE'
     #echo "cmdFile=$cmdFile"
-    rm -f $cmdFile $resultFile
+    cccRemoveTmpFile $cmdFile $resultFile
     return 0
 }
 
@@ -208,6 +228,7 @@ cccGetMultiKeyValue() {
     local keyList=$2
     local value
     local maxLen=0
+    local $keyList i
     if [ -z "$1" -o -z "$2" ]; then
         cccGetMultiKeyValueUsage
         return 1
@@ -242,7 +263,7 @@ __END__
     else
         eval $3=\"$value\"
     fi
-    rm -f $cmdFile $resultFile
+    cccRemoveTmpFile $cmdFile $resultFile
     return 0
 }
 
@@ -262,6 +283,7 @@ cccSetMultiKeyValue() {
     local cmdFile resultFile key value dataType
     local keyPath=$1
     local keyList=$2
+    local $keyList i
     if [ -z "$1" -o -z "$2" ]; then
         cccSetMultiKeyValueUsage
         return 1
@@ -284,7 +306,7 @@ __END__
 
     if ! cccSendCmd $cmdFile $resultFile; then return 1; fi
     cat $resultFile | grep '^SEL\|^SET\|^SAVE'
-    rm -f $cmdFile $resultFile
+    cccRemoveTmpFile $cmdFile $resultFile
     return 0
 }
 
@@ -300,6 +322,7 @@ cccGetArrayKeyValue() {
     local keyList=$2
     local maxLen=0
     local idx=1
+    local $keyList i
     [ -z "$1" -o -z "$2" ] && return 1
     cmdFile=$(genTmpCmdFile)
     resultFile=$(genTmpResultFile)
@@ -329,7 +352,7 @@ __END__
         [ -n "$4" ] && [ $idx -eq $4 ] && break
         idx=$((idx+1))
     done # end of while true;
-    rm -f $cmdFile $resultFile
+    cccRemoveTmpFile $cmdFile $resultFile
     [ -z "$(echo -e $value|tr -d "\xff\n")" ] && return 0
     if [ -z "$3" ]; then
         echo "cccRdmObj: $keyPath"
@@ -537,6 +560,15 @@ cccRdmAccessScriptExample2() {
 }
 
 cccRdmAccessScriptExample3() {
+    local keyList
     cccGetMultiKeyValue InternetGatewayDevice.DeviceInfo "ProductClass Description SerialNumber"
-    #cccGetMultiKeyValue InternetGatewayDevice.WANDevice
+    keyList="EnabledForInternet WANAccessType Layer1UpstreamMaxBitRate \
+             Layer1DownstreamMaxBitRate PhysicalLinkStatus TotalBytesSent \
+             TotalBytesReceived TotalPacketsSent TotalPacketsReceived \
+             WANAccessProvider MaximumActiveConnections NumberOfActiveConnections \
+            "
+    [ -n "$MLD_WAN_GPON" ] && \
+        keyList="$keyList X_5067F0_PonLinkUpTime"
+    #CCC_BACKUP_TMP_CMD_FILE=1
+    cccGetMultiKeyValue InternetGatewayDevice.WANDevice.1 "$keyList"
 }
