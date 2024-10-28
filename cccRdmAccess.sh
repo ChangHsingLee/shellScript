@@ -50,7 +50,7 @@ cccRemoveTmpFile() {
 cccDumpProcNetDevPktCounter() {
     local counterTypes="\
         rx_bytes rx_packets rx_errs rx_drop rx_fifo rx_frame rx_compressed rx_multicast \
-        tx_bytes tx_packets tx_errs tx_drop tx_fifo tx_frame tx_compressed tx_multicast \
+        tx_bytes tx_packets tx_errs tx_drop tx_fifo tx_colls tx_carrier tx_compressed \
     "
     local interface i ifList
     local $counterTypes
