@@ -47,6 +47,36 @@ cccRemoveTmpFile() {
     rm -f $1 $2
 }
 
+cccDumpProcNetDevPktCounter() {
+    local counterTypes="\
+        rx_bytes rx_packets rx_errs rx_drop rx_fifo rx_frame rx_compressed rx_multicast \
+        tx_bytes tx_packets tx_errs tx_drop tx_fifo tx_frame tx_compressed tx_multicast \
+    "
+    local interface i ifList
+    local $counterTypes
+    while [ -n "$1" ]; do
+        if [ -z "$ifList" ]; then
+            ifList="$1:"
+        else
+            ifList="$ifList\|$1:"
+        fi
+        shift
+    done
+    while read -r interface $counterTypes; do
+#        [ -n "$1" ] && [ "${interface}" != "$1:" ] && \
+#            continue
+        [ -n "$ifList" ] && if ! echo $interface|grep -q $ifList; then continue; fi
+        echo "$interface"
+        for i in $counterTypes; do
+            eval "printf \"%18s: %d\\n\" $i \$$i"
+        done
+        echo
+    done<<__END__
+$(cat /proc/net/dev)
+__END__
+    echo
+}
+
 # arg1: command file
 # arg2: result file
 cccSendCmd() {
