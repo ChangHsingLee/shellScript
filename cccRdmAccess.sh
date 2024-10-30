@@ -72,7 +72,7 @@ cccDumpProcNetDevPktCounter() {
         done
         echo
     done<<__END__
-$(cat /proc/net/dev)
+$(sed -n '3,$p' /proc/net/dev)
 __END__
     echo
 }
@@ -192,7 +192,8 @@ GET $key;
 SEND;
 __END__
     if ! cccSendCmd $cmdFile $resultFile; then return 1; fi
-    value=$(cat $resultFile|awk -F= '/\<Value\>/{print $2}')
+    #value=$(awk -F= '/\<Value\>/{print $2}' $resultFile)
+    value=$(sed -n "s/^.*\<Value\>=\(.*\)/\1/p" $resultFile)
     if [ -z "$2" ]; then
         echo "cccRdmObj: $keyPath"
         echo "    $key = $value"
@@ -236,7 +237,7 @@ SAVE;
 SEND;
 __END__
     if ! cccSendCmd $cmdFile $resultFile; then return 1; fi
-    cat $resultFile | grep '^SEL\|^SET\|^SAVE'
+    grep '^SEL\|^SET\|^SAVE' $resultFile
     #echo "cmdFile=$cmdFile"
     cccRemoveTmpFile $cmdFile $resultFile
     return 0
@@ -277,7 +278,9 @@ done
 SEND;
 __END__
     if ! cccSendCmd $cmdFile $resultFile; then return 1; fi
-    value=$(cat $resultFile|awk -F= '/\<Value\>/{printf $2"\xff"}')
+    #value=$(awk -F= '/\<Value\>/{printf $2"\xff"}' $resultFile)
+    value=$(printf "\xff")
+    value=$(sed -n "s/^.*\<Value\>=\(.*\)/\1$value/p" $resultFile)
     if [ -z "$3" ]; then
         IFS=$'\xff' read -r $keyList <<__END__
 $value
@@ -335,7 +338,7 @@ __END__
     echo -e "SAVE;\nSEND;" >> $cmdFile
 
     if ! cccSendCmd $cmdFile $resultFile; then return 1; fi
-    cat $resultFile | grep '^SEL\|^SET\|^SAVE'
+    grep '^SEL\|^SET\|^SAVE' $resultFile
     cccRemoveTmpFile $cmdFile $resultFile
     return 0
 }
@@ -352,10 +355,11 @@ cccGetArrayKeyValue() {
     local keyList=$2
     local maxLen=0
     local idx=1
-    local $keyList i
+    local $keyList i x
     [ -z "$1" -o -z "$2" ] && return 1
     cmdFile=$(genTmpCmdFile)
     resultFile=$(genTmpResultFile)
+    x=$(printf "\xff")
     while true; do
         # generate ccctest command file/script
         cat <<__END__ > $cmdFile
@@ -374,9 +378,11 @@ __END__
         # last array element, empty array or wrong key path
         if grep -q "^SEL .*: fail" $resultFile; then break; fi
         if [ -n "$value" ]; then
-            value=$value"\n$(awk -F= '/\<Value\>/{printf $2"\xff"}' $resultFile)"
+            #value=$value"\n$(awk -F= '/\<Value\>/{printf $2"\xff"}' $resultFile)"
+            value="$value\n"$(sed -n "s/^.*\<Value\>=\(.*\)/\1$x/p" $resultFile)
         else
-            value="$(awk -F= '/\<Value\>/{printf $2"\xff"}' $resultFile)"
+            #value="$(awk -F= '/\<Value\>/{printf $2"\xff"}' $resultFile)"
+            value=$(sed -n "s/^.*\<Value\>=\(.*\)/\1$x/p" $resultFile)
         fi
         # 
         [ -n "$4" ] && [ $idx -eq $4 ] && break
@@ -394,7 +400,7 @@ __END__
             echo "    index: $idx"
             for i in $keyList; do
                 #eval "echo \"        $i = \$$i\""
-                eval "printf \"        %${maxLen}s = %s\\n\" $i \$$i"
+                eval "printf \"        %${maxLen}s = %s\\n\" $i \"\$$i\""
             done
             idx=$((idx+1))
         done <<__END__
@@ -521,6 +527,8 @@ cccDumpCertCfg() {
     echo "    MD5                               File"
     echo "    --------------------------------  --------------------"
     md5sum ${result}CA*.pem 2>&1|sed 's/^md5sum: //g'|awk '{print "    "$0}'
+    cccGetKeyValue InternetGatewayDevice.ManagementServer.X_5067F0_CABackupRestoreFlag
+    cccGetArrayKeyValue InternetGatewayDevice.ManagementServer.X_5067F0_CAContent CAEntry
 }
 
 #-------- Dump GUI>Maintenance>Log Setting
