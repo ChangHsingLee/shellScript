@@ -19,6 +19,8 @@ genTmpFile() {
     while true; do
         if [ -n "$(which mktemp)" ]; then
             tmpFileName=$(mktemp -u /tmp/$prefixName-XXXXXXXX)
+        elif [ -n "$(which shuf)" ]; then
+            tmpFileName=/tmp/$prefixName-$(printf "%05d" $(shuf -i 1-99999 -n1))
         else
             tmpFileName=/tmp/$prefixName-$(head -c4 /dev/urandom|xxd -p)
         fi
