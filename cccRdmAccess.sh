@@ -279,8 +279,7 @@ SEND;
 __END__
     if ! cccSendCmd $cmdFile $resultFile; then return 1; fi
     #value=$(awk -F= '/\<Value\>/{printf $2"\xff"}' $resultFile)
-    value=$(printf "\xff")
-    value=$(sed -n "s/^.*\<Value\>=\(.*\)/\1$value/p" $resultFile)
+    value=$(sed -n "s/^.*\<Value\>=\(.*\)/\1/p" $resultFile|tr '\n' '\xff')
     if [ -z "$3" ]; then
         IFS=$'\xff' read -r $keyList <<__END__
 $value
@@ -355,11 +354,10 @@ cccGetArrayKeyValue() {
     local keyList=$2
     local maxLen=0
     local idx=1
-    local $keyList i x
+    local $keyList i
     [ -z "$1" -o -z "$2" ] && return 1
     cmdFile=$(genTmpCmdFile)
     resultFile=$(genTmpResultFile)
-    x=$(printf "\xff")
     while true; do
         # generate ccctest command file/script
         cat <<__END__ > $cmdFile
@@ -379,10 +377,10 @@ __END__
         if grep -q "^SEL .*: fail" $resultFile; then break; fi
         if [ -n "$value" ]; then
             #value=$value"\n$(awk -F= '/\<Value\>/{printf $2"\xff"}' $resultFile)"
-            value="$value\n"$(sed -n "s/^.*\<Value\>=\(.*\)/\1$x/p" $resultFile)
+            value="$value\n"$(sed -n "s/^.*\<Value\>=\(.*\)/\1/p" $resultFile|tr '\n' '\xff')
         else
             #value="$(awk -F= '/\<Value\>/{printf $2"\xff"}' $resultFile)"
-            value=$(sed -n "s/^.*\<Value\>=\(.*\)/\1$x/p" $resultFile)
+            value=$(sed -n "s/^.*\<Value\>=\(.*\)/\1/p" $resultFile|tr '\n' '\xff')
         fi
         # 
         [ -n "$4" ] && [ $idx -eq $4 ] && break
@@ -502,8 +500,22 @@ cccDumpPCPcfg() {
 
 #-------- Dump GUI>Security>Firewell
 cccDumpFirewallCfg() {
-    # TODO:
-    echo "Not supported!"
+    local result idx1
+    local tmpResultFile=$(genTmpFile)
+    cccGetMultiKeyValue InternetGatewayDevice.X_TELEFONICA_Firewall "\
+        X_5067F0_Enable X_5067F0_ActionFlag X_5067F0_RuleActionFlag X_5067F0_EditFirewallID\
+        X_5067F0_EditFirewallDir FirewallNumberOfEntries"
+    idx1=1
+    while true; do
+        cccGetMultiKeyValue InternetGatewayDevice.X_TELEFONICA_Firewall.Firewall.$idx1 "\
+            Name X_5067F0_Enable Interface X_5067F0_IfName Type IPVersion\
+            DefaultAction X_5067F0_AppUsed RuleNumberOfEntries" > $tmpResultFile
+        [ -z "$(cat $tmpResultFile|awk -F"= " '/\<Name\>/{print $NF}')" ] && break
+        cat $tmpResultFile|awk '{print "    "$0}'
+        cccGetMultiKeyValue InternetGatewayDevice.X_TELEFONICA_Firewall.Firewall.$idx1.stats "\
+            Packets Bytes"|awk '{ print "        " $0}'
+        idx1=$((idx1+1))
+    done
 }
 
 #-------- Dump GUI>Security>Certificates
