@@ -245,7 +245,7 @@ __END__
     return 0
 }
 
-cccGetMultiKeyValueUsage() {
+c() {
     echo "Usage: cccGetMultiKeyValue <keyPath> <keyList> [var]"
     echo "   keyPath: key path without key name (Example: TopNode.SubNode.2)"
     echo "   keyList: key name list (Example: "key1 key2 key3...")"
@@ -266,6 +266,9 @@ cccGetMultiKeyValue() {
         cccGetMultiKeyValueUsage
         return 1
     fi
+    [ "${keyPath: -1}" == "." ] && \
+        echo -e "Wrong key path \"$keyPath\"!\n" && \
+        cccGetMultiKeyValueUsage && return 1
     cmdFile=$(genTmpCmdFile)
     resultFile=$(genTmpResultFile)
     cat <<__END__ > $cmdFile
@@ -358,6 +361,11 @@ cccGetArrayKeyValue() {
     local idx=1
     local $keyList i
     [ -z "$1" -o -z "$2" ] && return 1
+    [ "${keyPath: -1}" == "." ] && \
+        echo -e "Wrong key path \"$keyPath\"!\n" && return 1
+    if echo ${keyPath##*.}| grep -qE '^[0-9]+$'; then
+        echo -e "Wrong key path \"$keyPath\"!\n" && return 1
+    fi
     cmdFile=$(genTmpCmdFile)
     resultFile=$(genTmpResultFile)
     while true; do
@@ -502,7 +510,7 @@ cccDumpPCPcfg() {
 
 #-------- Dump GUI>Security>Firewell
 cccDumpFirewallCfg() {
-    local result idx1
+    local result idx1 idx2
     local tmpResultFile=$(genTmpFile)
     cccGetMultiKeyValue InternetGatewayDevice.X_TELEFONICA_Firewall "\
         X_5067F0_Enable X_5067F0_ActionFlag X_5067F0_RuleActionFlag X_5067F0_EditFirewallID\
@@ -516,6 +524,21 @@ cccDumpFirewallCfg() {
         cat $tmpResultFile|awk '{print "    "$0}'
         cccGetMultiKeyValue InternetGatewayDevice.X_TELEFONICA_Firewall.Firewall.$idx1.stats "\
             Packets Bytes"|awk '{ print "        " $0}'
+        idx2=1
+        while true; do
+            cccGetMultiKeyValue InternetGatewayDevice.X_TELEFONICA_Firewall.Firewall.$idx1.Rule.$idx2 "\
+                Enabled X_5067F0_RuleName IPType Protocol Action RejectType Reject6Type IcmpType\
+                Icmpv6Type X_5067F0_IPv6Header X_5067F0_Service"  > $tmpResultFile
+            [ -z "$(cat $tmpResultFile|awk -F"= " '/\<Enabled\>/{print $NF}')" ] && break
+            cat $tmpResultFile|awk '{ print "        " $0}'
+            cccGetMultiKeyValue InternetGatewayDevice.X_TELEFONICA_Firewall.Firewall.$idx1.Rule.$idx2.Origin "\
+                IPAddress Mask StartPort EndPort IPv6Address IPv6PrefixLen X_5067F0_MACAddress"|awk '{ print "            " $0}'
+            cccGetMultiKeyValue InternetGatewayDevice.X_TELEFONICA_Firewall.Firewall.$idx1.Rule.$idx2.Destination "\
+                IPAddress Mask StartPort EndPort IPv6Address IPv6PrefixLen X_5067F0_MACAddress"|awk '{ print "            " $0}'
+            cccGetMultiKeyValue InternetGatewayDevice.X_TELEFONICA_Firewall.Firewall.$idx1.Rule.$idx2.RuleStats "\
+                Packets Bytes"|awk '{ print "            " $0}'
+            idx2=$((idx2+1))
+        done
         idx1=$((idx1+1))
     done
 }
