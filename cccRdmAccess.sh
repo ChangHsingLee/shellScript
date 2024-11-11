@@ -245,7 +245,7 @@ __END__
     return 0
 }
 
-c() {
+cccGetMultiKeyValueUsage() {
     echo "Usage: cccGetMultiKeyValue <keyPath> <keyList> [var]"
     echo "   keyPath: key path without key name (Example: TopNode.SubNode.2)"
     echo "   keyList: key name list (Example: "key1 key2 key3...")"
