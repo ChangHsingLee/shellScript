@@ -197,8 +197,7 @@ __END__
     #value=$(awk -F= '/\<Value\>/{print $2}' $resultFile)
     value=$(sed -n "s/^.*\<Value\>=\(.*\)/\1/p" $resultFile)
     if [ -z "$2" ]; then
-        echo "cccRdmObj: $keyPath"
-        echo "    $key = $value"
+        echo "$keyPath.$key = $value"
     else
         eval $2=$value
     fi
@@ -289,7 +288,7 @@ __END__
         IFS=$'\xff' read -r $keyList <<__END__
 $value
 __END__
-        echo "cccRdmObj: $keyPath"
+        echo "$keyPath"
         for i in $keyList; do
             [ ${#i} -gt $maxLen ] && maxLen=${#i}
         done
@@ -399,16 +398,15 @@ __END__
     cccRemoveTmpFile $cmdFile $resultFile
     [ -z "$(echo -e $value|tr -d "\xff\n")" ] && return 0
     if [ -z "$3" ]; then
-        echo "cccRdmObj: $keyPath"
         for i in $keyList; do
             [ ${#i} -gt $maxLen ] && maxLen=${#i}
         done
         idx=1
         while IFS=$'\xff' read -r $keyList; do
-            echo "    index: $idx"
+            echo "$keyPath.$idx"
             for i in $keyList; do
-                #eval "echo \"        $i = \$$i\""
-                eval "printf \"        %${maxLen}s = %s\\n\" $i \"\$$i\""
+                #eval "echo \"    $i = \$$i\""
+                eval "printf \"    %${maxLen}s = %s\\n\" $i \"\$$i\""
             done
             idx=$((idx+1))
         done <<__END__
@@ -418,6 +416,44 @@ __END__
         eval $3=\"$(echo -e $value)\"
     fi
     return 0
+}
+
+cccListWANConnection() {
+    local resultFile idx1 idx2 idx3 result
+    local value1 value2
+    resultFile=$(genTmpResultFile)
+    idx1=1
+    while true; do
+        idx2=1
+        cccGetKeyValue InternetGatewayDevice.WANDevice.$idx1.WANConnectionNumberOfEntries result
+        [ -z "$result" ] && break
+        echo "cccGetKeyValue InternetGatewayDevice.WANDevice.$idx1.WANConnectionNumberOfEntries = $result"
+        while true; do
+            cccGetMultiKeyValue InternetGatewayDevice.WANDevice.$idx1.WANConnectionDevice.$idx2 "\
+                WANIPConnectionNumberOfEntries WANPPPConnectionNumberOfEntries" result
+    IFS=$'\xff' read -r value1 value2 <<__END__
+$(echo -e $result)
+__END__
+            [ -z "$value1" ] && break
+            echo "    InternetGatewayDevice.WANDevice.$idx1.WANConnectionDevice.$idx2.WANIPConnectionNumberOfEntries  = $value1"
+            echo "    InternetGatewayDevice.WANDevice.$idx1.WANConnectionDevice.$idx2.WANPPPConnectionNumberOfEntries = $value2"
+            cccGetArrayKeyValue InternetGatewayDevice.WANDevice.$idx1.WANConnectionDevice.$idx2.WANIPConnection "\
+                Enable ConnectionStatus X_5067F0_IPv6ConnStatus Name X_5067F0_IfName X_5067F0_InterfaceName MACAddress \
+                ConnectionType NATEnabled X_5067F0_NATType X_5067F0_Enable_VLANID X_5067F0_VLANID \
+                AddressingType ExternalIPAddress SubnetMask DefaultGateway DNSEnabled DNSServers \
+                X_5067F0_IPv6Enabled X_5067F0_IPv6AddressingType X_5067F0_ExternalIPv6Address X_5067F0_IPv6LinklocalAddress \
+                X_5067F0_IPv6DefaultGateway X_5067F0_DHCP6cForDNS X_5067F0_IPv6DNSServers"|awk '{ print "        " $0}'
+            cccGetArrayKeyValue InternetGatewayDevice.WANDevice.$idx1.WANConnectionDevice.$idx2.WANPPPConnection "\
+                Enable ConnectionStatus X_5067F0_IPv6ConnStatus Name X_5067F0_IfName X_5067F0_InterfaceName MACAddress \
+                ConnectionType NATEnabled X_5067F0_NATType X_5067F0_Enable_VLANID X_5067F0_VLANID \
+                ExternalIPAddress X_5067F0_SubnetMask DefaultGateway DNSEnabled DNSServers \
+                X_5067F0_IPv6Enabled X_5067F0_IPv6AddressingType X_5067F0_ExternalIPv6Address X_5067F0_IPv6LinklocalAddress \
+                X_5067F0_IPv6DefaultGateway X_5067F0_DHCP6cForDNS X_5067F0_IPv6DNSServers"|awk '{ print "        " $0}'
+            idx2=$((idx2+1))
+        done
+        idx1=$((idx1+1))
+    done
+    rm -f $resultFile
 }
 
 #-------- Dump GUI>Security>URL Filter
@@ -541,6 +577,8 @@ cccDumpFirewallCfg() {
         done
         idx1=$((idx1+1))
     done
+    cccGetMultiKeyValue InternetGatewayDevice.X_TELEFONICA_Firewall.X_5067F0_DOS "\
+        Enable TCPThreshold UDPThreshold ICMPThreshold ICMPRedirect DoSLog"
 }
 
 #-------- Dump GUI>Security>Certificates
