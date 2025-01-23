@@ -67,7 +67,8 @@ hexStr2val() {
 }
 
 isDecStr() {
-	if [ -n "$(echo $1 | egrep '^[0-9]+$')" ]; then
+	#if [ -n "$(echo $1 | egrep '^[0-9]+$')" ]; then
+	if echo "$1" | grep -qE '^[0-9]+$'; then
 		return 0
 	fi
 	return 1
