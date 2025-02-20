@@ -162,3 +162,13 @@ ignoreLastChar() {
 	local str=$1
  	echo ${str::-1}
 }
+
+# check input value($1) is decimal value or not
+isDEC() {
+	echo "$1" | grep -qE "^[0-9\.]+$"
+}
+
+# check input value($1) is hexadecimal value or not
+isHEX() {
+	echo "$1" | grep -qE "^[0-9a-fA-F]+$"
+}
