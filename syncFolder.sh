@@ -1,69 +1,8 @@
 #!/bin/sh
 [ -z "$FILE_LIST" ] && \
 FILE_LIST="\
-    trunk-utils/MLD_Scripts/menu/feature.kconfig                                                    \
-    makecode/sysapps/private/mitrastar/fwupgrade/REALTEK/Makefile.MSTC                              \
-    makecode/sysapps/private/mitrastar/fwupgrade/REALTEK/src/dump_zlfw_header.c                     \
-    makecode/sysapps/private/mitrastar/fwupgrade/REALTEK/src/Makefile                               \
-    makecode/sysapps/private/mitrastar/fwupgrade/REALTEK/src/extract_image.c                        \
-    makecode/sysapps/private/mitrastar/fwupgrade/REALTEK/src/compute_checksum.c                     \
-    makecode/sysapps/private/mitrastar/fwupgrade/REALTEK/src/check_checksum.c                       \
-    makecode/sysapps/private/mitrastar/fwupgrade/REALTEK/src/zlFwHeader.h                           \
-    makecode/sysapps/private/mitrastar/fwupgrade/REALTEK/src/Makefile.MSTC                          \
-    makecode/sysapps/private/mitrastar/fwupgrade/REALTEK/src/append_zlfw_header.c                   \
-    makecode/sysapps/private/mitrastar/fwupgrade/Makefile                                           \
-    makecode/sysapps/private/mitrastar/libboardaccess/Makefile                                      \
-    makecode/sysapps/private/mitrastar/libboardaccess/REALTEK/boardaccess_wrapper.c                 \
-    platform/bootloader/u-boot-2022.10/include/mstc/zlFwHeader.h                                    \
-    platform/bootloader/u-boot-2022.10/common/mstc/fw_upgrade.c                                     \
-    platform/bootloader/u-boot-2022.10/common/mstc/zboot_sub.c                                      \
-    platform/bootloader/u-boot-2022.10/Kconfig                                                      \
-    platform/bootloader/Makefile.MSTC                                                               \
-    makecode/sysapps/public/others/dropbear-2020.81/Makefile.MSTC                                   \
-    makecode/sysapps/public/gpl/openssh-9.9p1/Makefile.MSTC                                         \
-    makecode/sysapps/public/gpl/busybox/Makefile                                                    \
-    makecode/sysapps/public/gpl/mini_httpd-1.30/Makefile                                            \
-    makecode/sysapps/private/mitrastar/tefcliapp/Makefile                                           \
-    makecode/sysapps/private/mitrastar/libCmd/Makefile                                              \
-    makecode/sysapps/private/mitrastar/ztr69-1.0/Makefile                                           \
-    makecode/sysapps/private/mitrastar/mos/Makefile.cortina.ca8279                                  \
-    makecode/sysapps/private/mitrastar/mos/Makefile.brcm.502L06                                     \
-    makecode/sysapps/private/mitrastar/mos/Makefile.econet.7551                                     \
-    makecode/sysapps/private/mitrastar/mos/Makefile.econet.7528                                     \
-    makecode/sysapps/private/mitrastar/mos/Makefile.rtk.USDKV2                                      \
-    makecode/sysapps/private/mitrastar/mos/Makefile.rtk.lunaV4                                      \
-    makecode/sysapps/private/mitrastar/mos/Makefile.econet.7529                                     \
-    makecode/sysapps/private/mitrastar/mos/Makefile.cortina.ca8289                                  \
-    makecode/sysapps/private/mitrastar/mos/Makefile.brcm.504L04p1                                   \
-    makecode/sysapps/private/mitrastar/diagnosticsProcess/Makefile                                  \
-    makecode/sysapps/private/mitrastar/tefdog/Makefile.MSTC                                         \
-    makecode/sysapps/private/mitrastar/zywifid-3.0/libzywlan/QTN/Makefile                           \
-    makecode/sysapps/private/mitrastar/zywifid-3.0/Makefile                                         \
-    makecode/sysapps/private/mitrastar/web-3.0.0/Brick/CGI/cgi_Airtel_FWA/Makefile                  \
-    makecode/sysapps/private/mitrastar/web-3.0.0/Brick/CGI/cgi_TO2/Makefile                         \
-    makecode/sysapps/private/mitrastar/web-3.0.0/Brick/CGI/cgi_RestAPI/Toolkit/Makefile             \
-    makecode/sysapps/private/mitrastar/web-3.0.0/Brick/CGI/cgi_RestAPI/Makefile                     \
-    makecode/sysapps/private/mitrastar/web-3.0.0/Brick/CGI/cgi_RestAPI/APIs/Makefile                \
-    makecode/sysapps/private/mitrastar/web-3.0.0/Brick/CGI/cgi_RestAPI/FWA_APIs/Makefile            \
-    makecode/sysapps/private/mitrastar/web-3.0.0/Brick/CGI/cgi_sophia/Makefile                      \
-    makecode/sysapps/private/mitrastar/web-3.0.0/Brick/CGI/cgi_mhs/Makefile                         \
-    makecode/sysapps/private/mitrastar/web-3.0.0/Brick/CGI/Makefile                                 \
-    makecode/sysapps/private/mitrastar/web-3.0.0/Brick/CGI/cgi_mhs_Chile/Makefile                   \
-    makecode/sysapps/private/mitrastar/web-3.0.0/Brick/CGI/cgi_TEF_SFU_mhs/Makefile                 \
-    makecode/sysapps/private/mitrastar/web-3.0.0/Brick/CGI/cgi_Instalacion_Chile/Makefile           \
-    makecode/sysapps/private/mitrastar/web-3.0.0/Brick/CGI/cgi_TO2_FWA/Makefile                     \
-    makecode/sysapps/private/mitrastar/ccc/be_modules/Makefile                                      \
-    makecode/sysapps/private/mitrastar/ccc/libccc_be/libccc_be_wlan/Makefile                        \
-    makecode/sysapps/private/mitrastar/ccc/core/be/Makefile                                         \
-    makecode/sysapps/private/mitrastar/syscmd/Makefile                                              \
-    makecode/sysapps/private/mitrastar/voicecmd/Makefile                                            \
-    makecode/sysapps/private/mitrastar/CMDSH/Makefile                                               \
-    makecode/sysapps/private/mitrastar/button_monitor/Makefile                                      \
-    makecode/sysapps/private/mitrastar/ZyIMS/config_sys/make/makefile.mk                            \
-    makecode/sysapps/private/mitrastar/hachi/Makefile                                               \
-    makecode/sysapps/private/mitrastar/libledctl/Makefile                                           \
 "
-    #makecode/sysapps/private/third-party/Aricent/iptk_8_2/ICF/source/ifx_al/make/linux/makefile     \
+
 PRODUCT_LIST="\
     GPT-2742GX4X5v6 \
     GPT-2841GX2X2v10 \
@@ -329,29 +268,29 @@ showProduct() {
     showListVarable "$PRODUCT_LIST" "$1"
 }
 
-LABEL_LEN=12
+LABEL_LEN=20
 usage() {
-    echo "Usage: $(basename $0) <top_dir> {checkin|compile <product>|diff|patch|revert|st} [-y]"
+    echo "Usage1: [FILE_LIST=\"file1 file2 ...\"] $(basename $0) <top_dir> <OPTION> [-y]"
+    echo "OPTION is one of below options:"
     printf "  %-${LABEL_LEN}s %s\n" "checkin" "check-in specific files which stored in 'top_dir'"
-    printf "  %-${LABEL_LEN}s %s\n" "compile" "compile the code in 'top_dir'"
+    printf "  %-${LABEL_LEN}s %s\n" "compile <product>" "compile the code in 'top_dir', supported products:"
+    showProduct "$(printf "  %-$((LABEL_LEN+4))s " " ")"
     printf "  %-${LABEL_LEN}s %s\n" "diff" "show modifications with unified format for specific files from 'top_dir' by SVN"
     printf "  %-${LABEL_LEN}s %s\n" "patch" "generate patches of specific files from 'top_dir' by SVN"
     printf "  %-${LABEL_LEN}s %s\n" "revert" "remove untracked files and revert specific files in 'top_dir' by SVN"
     printf "  %-${LABEL_LEN}s %s\n" "st" "check status of specific files in 'top_dir' by SVN"
     echo
-    echo "Usage: $(basename $0) <src_dir> <dst_dir> {diff|patch|sync} [-y]"
-    printf "  %-${LABEL_LEN}s %s\n" "diff" "compare specific files stored in 'src_dir' and 'dst_dir', and show the differences in unified format"
+    echo "Usage2: [FILE_LIST=\"file1 file2 ...\"] $(basename $0) <src_dir> <dst_dir> <OPTION> [-y]"
+    echo "OPTION is one of below options:"
+    printf "  %-${LABEL_LEN}s %s\n" "diff" "compare specific files between 'src_dir' and 'dst_dir', and show the differences in unified format"
     printf "  %-${LABEL_LEN}s %s\n" "patch" "generate patches of specific files from 'src_dir' by SVN and apply them to 'dst_dir' with quilt"
     printf "  %-${LABEL_LEN}s %s\n" "sync" "copy specific files from folder 'src_dir' to 'dst_dir'"
     echo
-    echo "options:"
-    printf "  %-${LABEL_LEN}s %s\n" "-y" "assume \"yes\" as answer to all prompts and run non-interactively"
+    echo "option -y: assume \"yes\" as answer to all prompts and run non-interactively"
     echo
     echo "specific files: files are listed in environment variable 'FILE_LIST'"
     showFiles "\t"
     echo
-    echo "product:"
-    showProduct "\t"
 }
 
 errNo=0
