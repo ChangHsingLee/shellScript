@@ -1,4 +1,5 @@
 #!/bin/sh
+[ -z "$FILE_LIST" ] && \
 FILE_LIST="\
     trunk-utils/MLD_Scripts/menu/feature.kconfig                                                    \
     makecode/sysapps/private/mitrastar/fwupgrade/REALTEK/Makefile.MSTC                              \
@@ -22,7 +23,6 @@ FILE_LIST="\
     makecode/sysapps/public/gpl/openssh-9.9p1/Makefile.MSTC                                         \
     makecode/sysapps/public/gpl/busybox/Makefile                                                    \
     makecode/sysapps/public/gpl/mini_httpd-1.30/Makefile                                            \
-    makecode/sysapps/private/third-party/Aricent/iptk_8_2/ICF/source/ifx_al/make/linux/makefile     \
     makecode/sysapps/private/mitrastar/tefcliapp/Makefile                                           \
     makecode/sysapps/private/mitrastar/libCmd/Makefile                                              \
     makecode/sysapps/private/mitrastar/ztr69-1.0/Makefile                                           \
@@ -63,6 +63,7 @@ FILE_LIST="\
     makecode/sysapps/private/mitrastar/hachi/Makefile                                               \
     makecode/sysapps/private/mitrastar/libledctl/Makefile                                           \
 "
+    #makecode/sysapps/private/third-party/Aricent/iptk_8_2/ICF/source/ifx_al/make/linux/makefile     \
 PRODUCT_LIST="\
     GPT-2742GX4X5v6 \
     GPT-2841GX2X2v10 \
@@ -120,11 +121,11 @@ confirmYesNo() {
 	return 1
 }
 
-rollback() {
+revert() {
     local d folders externals
     checkDir $1
     [ $confirm -ne 0 ] && \
-    if ! confirmYesNo "rollback all codes in $1"; then
+    if ! confirmYesNo "revert all codes in $1"; then
 	return
     fi
     cd $1
@@ -151,14 +152,22 @@ rollback() {
     done
     svn up
     cd - >/dev/null
-    echo;echo "Rollback '$1' done!"
+    echo;echo "Revert '$1' done!"
     echo
 }
 
 checkin() {
+    local f
     checkDir $1
     checkFileList $1
     cd $1
+    for f in $FILE_LIST; do
+        # add new file
+        if [ -n "$(svn st $f | grep '^?')" ]; then
+            #echo "svn add $f"
+            svn add $f
+        fi
+    done
     svn ci $FILE_LIST
     cd - >/dev/null
 }
@@ -240,33 +249,64 @@ diffFiles() {
     echo
 }
 
-patchFiles() {
-    local i f key patchDir patchFile
-    checkDir $1
-    checkDir $2
-    checkFileList $1
+genPatches() {
+    local srcDir=$1
+    local patchDir=$2
+    local i f patchFile tmpDir
+
+    checkDir $srcDir
+    checkFileList $srcDir
+    if [ -e $patchDir ]; then
+	[ -z "$(find $patchDir -maxdepth 0 -empty)" ] && { \
+            # If folder is not empty, confirmation is needed before overwriting
+	    [ $confirm -ne 0 ] && {
+                if ! confirmYesNo "$patchDir is not empty! overwrite it"; then
+                    echo; echo "Abort process, skip to generate patch file!"; echo
+	            exit -6
+                fi
+            }
+            tmpDir=$(mktemp -d) && mv $patchDir $tmpDir/ && rm -fr $tmpDir &
+            mkdir -p $patchDir
+	}
+    else
+        mkdir -p $patchDir
+    fi
     i=0
+    for f in $FILE_LIST; do
+	patchFile=$(printf "%04d-%s.patch" $i ${f//\//_})
+	if ! svn diff -x -p $srcDir/$f > $patchDir/$patchFile; then
+            rm -fr $patchDir
+            exit -7
+	fi
+        if [ -s $patchFile ]; then
+            # file is empty (file not be modified)
+            rm -f $patchFile
+        else
+            echo $patchFile >> $patchDir/series
+        fi
+	i=$((i+1))
+    done
+}
+
+patchFiles() {
+    local patchDir
+
+    checkDir $2
+    # generate patch files
     patchDir=$(mktemp -d)
+    genPatches $1 $patchDir
     [ -d $2/patches ] && {
         rm -fr $2/patches
         rm -fr $2/.pc
     }
-    for f in $FILE_LIST; do
-	patchFile=$(printf "%04d-%s.patch" $i  ${f//\//_})
-	if ! svn diff -x -p $1/$f > $patchDir/$patchFile; then
-            rm -fr $patchDir
-            exit -6
-	fi
-	echo $patchFile >> $patchDir/series
-	i=$((i+1))
-    done
     mv $patchDir $2/patches
+    # appliy aptches
     cd $2 
     if ! quilt push -a; then
         cd - >/dev/null
-	echo;echo "patch failed, use following commands to revert files!"
+	echo;echo "patch failed, use following commands to restore files!"
 	echo -e "cd $2\nquilt pop -a && rm -fr .pc patches\ncd -\n"
-	exit -7
+	exit -8
     fi
     cd - >/dev/null
     echo
@@ -291,22 +331,23 @@ showProduct() {
 
 LABEL_LEN=12
 usage() {
-    echo "Usage: $(basename $0) <top_dir> {checkin|compile <product>|diff|rollback|st} [-y]"
-    printf "  %-${LABEL_LEN}s %s\n" "checkin" "check-in following files which stored in 'top_dir'"
-    printf "  %-${LABEL_LEN}s %s\n" "compile" "compile the code in 'top-folder'"
-    printf "  %-${LABEL_LEN}s %s\n" "dff" "compare two files, use unified format to show differences"
-    printf "  %-${LABEL_LEN}s %s\n" "rollback" "rollback all files in folder 'top_dir' by using SVN command 'svn revert'"
-    printf "  %-${LABEL_LEN}s %s\n" "st" "check file state by SVN command 'svn st'"
+    echo "Usage: $(basename $0) <top_dir> {checkin|compile <product>|diff|patch|revert|st} [-y]"
+    printf "  %-${LABEL_LEN}s %s\n" "checkin" "check-in specific files which stored in 'top_dir'"
+    printf "  %-${LABEL_LEN}s %s\n" "compile" "compile the code in 'top_dir'"
+    printf "  %-${LABEL_LEN}s %s\n" "diff" "show modifications with unified format for specific files from 'top_dir' by SVN"
+    printf "  %-${LABEL_LEN}s %s\n" "patch" "generate patches of specific files from 'top_dir' by SVN"
+    printf "  %-${LABEL_LEN}s %s\n" "revert" "remove untracked files and revert specific files in 'top_dir' by SVN"
+    printf "  %-${LABEL_LEN}s %s\n" "st" "check status of specific files in 'top_dir' by SVN"
     echo
     echo "Usage: $(basename $0) <src_dir> <dst_dir> {diff|patch|sync} [-y]"
-    printf "  %-${LABEL_LEN}s %s\n" "diff" "compare two files, use unified format to show differences"
-    printf "  %-${LABEL_LEN}s %s\n" "patch" "generate file patches from 'src_dir' and use quilt to apply patch to 'dst_dir'"
-    printf "  %-${LABEL_LEN}s %s\n" "sync" "copy following files from folder 'src_dir' to 'dst_dir'"
+    printf "  %-${LABEL_LEN}s %s\n" "diff" "compare specific files stored in 'src_dir' and 'dst_dir', and show the differences in unified format"
+    printf "  %-${LABEL_LEN}s %s\n" "patch" "generate patches of specific files from 'src_dir' by SVN and apply them to 'dst_dir' with quilt"
+    printf "  %-${LABEL_LEN}s %s\n" "sync" "copy specific files from folder 'src_dir' to 'dst_dir'"
     echo
     echo "options:"
     printf "  %-${LABEL_LEN}s %s\n" "-y" "assume \"yes\" as answer to all prompts and run non-interactively"
     echo
-    echo "files:"
+    echo "specific files: files are listed in environment variable 'FILE_LIST'"
     showFiles "\t"
     echo
     echo "product:"
@@ -328,8 +369,8 @@ case $cmd in
 	confirm=0
         svnOperation $topdir st
 	;;
-    rollback)
-        rollback $topdir
+    revert)
+        revert $topdir
         ;;
     checkin)
         checkin $topdir
@@ -339,6 +380,9 @@ case $cmd in
         [ "$4" == "-y" ] && confirm=0
         compilePItrunk $topdir $product
         ;;
+    patch)
+       genPatches $topdir $topdir/patches
+       ;;
     *)
         src_dir=$1
 	dst_dir=$2
