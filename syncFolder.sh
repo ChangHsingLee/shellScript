@@ -60,6 +60,47 @@ confirmYesNo() {
 	return 1
 }
 
+syncRevision() {
+    local subDIR1 subDIR2 dir1 dir2
+    if ! confirmYesNo "rollback all codes in $1 to SVN revision $2"; then
+	return
+    fi
+    pushd . >/dev/null
+    cd $1
+    subDIR1=$(svn pg svn:externals -R | grep -v -E "^http"|cut -d' ' -f1)
+    for dir1 in $subDIR1; do
+        pushd . >/dev/null
+        cd $dir1
+        subDIR2=$(svn pg svn:externals .|cut -d' ' -f2)
+        for dir2 in $subDIR2; do
+                pushd . >/dev/null
+                cd $dir2 >/dev/null
+                echo $PWD
+                svn up -r $2
+                popd >/dev/null
+        done
+        popd >/dev/null
+    done
+    popd >/dev/null
+}
+
+showRevision() {
+    local d folders externals
+    checkDir $1
+    cd $1
+    folders=""
+    externals=$(svn propget svn:externals -R| grep -v "^https" | cut -d' ' -f1)
+    for d in $externals; do
+	#echo "externals: $d"
+	folders="$folders $d $(svn propget svn:externals $d|awk -v var=$d 'NF {print var"/"$2}')"
+    done
+    # show revision
+    for d in $folders; do
+        echo "$d: r$(svn info $d|grep Revision|cut -d' ' -f2)"
+    done
+    cd - >/dev/null
+}
+
 revert() {
     local d folders externals
     checkDir $1
@@ -279,6 +320,8 @@ usage() {
     printf "  %-${LABEL_LEN}s %s\n" "patch" "generate patches of specific files from 'top_dir' by SVN"
     printf "  %-${LABEL_LEN}s %s\n" "revert" "remove untracked files and revert specific files in 'top_dir' by SVN"
     printf "  %-${LABEL_LEN}s %s\n" "st" "check status of specific files in 'top_dir' by SVN"
+    printf "  %-${LABEL_LEN}s %s\n" "showRev" "show all SVN revision(including externals) in 'top_dir'"
+    printf "  %-${LABEL_LEN}s %s\n" "syncRev <rev>" "sync SVN revision(including externals) in 'top_dir'"
     echo
     echo "Usage2: [FILE_LIST=\"file1 file2 ...\"] $(basename $0) <src_dir> <dst_dir> <OPTION> [-y]"
     echo "OPTION is one of below options:"
@@ -321,6 +364,13 @@ case $cmd in
         ;;
     patch)
        genPatches $topdir $topdir/patches
+       ;;
+    showRev)
+       showRevision $topdir
+       ;;
+    syncRev)
+       [ "$4" == "-y" ] && confirm=0
+       syncRevision $topdir $3
        ;;
     *)
         src_dir=$1
