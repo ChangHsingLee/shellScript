@@ -67,11 +67,11 @@ syncRevision() {
     fi
     pushd . >/dev/null
     cd $1
-    subDIR1=$(svn pg svn:externals -R | grep -v -E "^http"|cut -d' ' -f1)
+    subDIR1=$(svn pg svn:externals -R | grep -v -E "^http"|cut -d' ' -f1|sort)
     for dir1 in $subDIR1; do
         pushd . >/dev/null
         cd $dir1
-        subDIR2=$(svn pg svn:externals .|cut -d' ' -f2)
+        subDIR2=$(svn pg svn:externals .|cut -d' ' -f2|sort)
         for dir2 in $subDIR2; do
                 pushd . >/dev/null
                 cd $dir2 >/dev/null
@@ -89,14 +89,14 @@ showRevision() {
     checkDir $1
     cd $1
     folders=""
-    externals=$(svn propget svn:externals -R| grep -v "^https" | cut -d' ' -f1)
+    externals=$(svn propget svn:externals -R|grep -v "^https"|cut -d' ' -f1|sort)
     for d in $externals; do
 	#echo "externals: $d"
-	folders="$folders $d $(svn propget svn:externals $d|awk -v var=$d 'NF {print var"/"$2}')"
+	folders="$folders $d $(svn propget svn:externals $d|awk -v var=$d 'NF {print var"/"$2}'|sort)"
     done
     # show revision
     for d in $folders; do
-        echo "$d: r$(svn info $d|grep Revision|cut -d' ' -f2)"
+        echo "$d: r$(svn info $d|grep Revision|cut -d' ' -f2)"|sed 's/^.\///g'
     done
     cd - >/dev/null
 }
@@ -110,10 +110,10 @@ revert() {
     fi
     cd $1
     folders=""
-    externals=$(svn propget svn:externals -R| grep -v "^https" | cut -d' ' -f1)
+    externals=$(svn propget svn:externals -R|grep -v "^https"|cut -d' ' -f1|sort)
     for d in $externals; do
 	#echo "externals: $d"
-	folders="$folders $d $(svn propget svn:externals $d|awk -v var=$d 'NF {print var"/"$2}')"
+	folders="$folders $d $(svn propget svn:externals $d|awk -v var=$d 'NF {print var"/"$2}'|sort)"
     done
     # remove untracking files
     for d in $(svn st | awk '/^?/{print $2}'); do
