@@ -60,61 +60,63 @@ confirmYesNo() {
 	return 1
 }
 
+_getSVNfolders() {
+    local d folders externals
+    checkDir $1
+    cd $1
+    folders=""
+    externals=$(svn propget svn:externals -R| grep -v "^https" | cut -d' ' -f1)
+    for d in $externals; do
+	#echo "externals: $d"
+	folders="$folders $d $(svn propget svn:externals $d|awk -v var=$d 'NF {if (var==".") {print $2} else {print var"/"$2}}')"
+    done
+    # sort folders
+    folders=$(echo $folders|tr " " "\n"|sort)
+    echo $folders
+}
+
 syncRevision() {
-    local subDIR1 subDIR2 dir1 dir2
+    local d folders
     if ! confirmYesNo "rollback all codes in $1 to SVN revision $2"; then
 	return
     fi
     pushd . >/dev/null
+    folders=$(_getSVNfolders $1)
     cd $1
-    subDIR1=$(svn pg svn:externals -R | grep -v -E "^http"|cut -d' ' -f1|sort)
-    for dir1 in $subDIR1; do
-        pushd . >/dev/null
-        cd $dir1
-        subDIR2=$(svn pg svn:externals .|cut -d' ' -f2|sort)
-        for dir2 in $subDIR2; do
-                pushd . >/dev/null
-                cd $dir2 >/dev/null
-                echo $PWD
-                svn up -r $2
-                popd >/dev/null
-        done
-        popd >/dev/null
+    for d in $folders; do
+        cd $d
+        svn up -r $2
+        cd - >/dev/null
     done
     popd >/dev/null
 }
 
 showRevision() {
-    local d folders externals
-    checkDir $1
+    local d folders maxlen
+    folders=$(_getSVNfolders $1)
     cd $1
-    folders=""
-    externals=$(svn propget svn:externals -R|grep -v "^https"|cut -d' ' -f1|sort)
-    for d in $externals; do
-	#echo "externals: $d"
-	folders="$folders $d $(svn propget svn:externals $d|awk -v var=$d 'NF {print var"/"$2}'|sort)"
+    maxlen=0
+    for d in $folders; do
+        [ $maxlen -lt ${#d} ] && maxlen=${#d}
     done
     # show revision
+    printf "%-${maxlen}s %s\n" "Path" "Revision"
+    eval printf \'=%.0s\' \{1..$maxlen\}
+    printf " ========\n"
     for d in $folders; do
-        echo "$d: r$(svn info $d|grep Revision|cut -d' ' -f2)"|sed 's/^.\///g'
-    done
+        printf "%-${maxlen}s %s\n" $d "$(svn info $d|grep Revision|cut -d' ' -f2)"
+    done|sort -k 2 -n
     cd - >/dev/null
 }
 
 revert() {
-    local d folders externals
-    checkDir $1
+    local d folders
     [ $confirm -ne 0 ] && \
     if ! confirmYesNo "revert all codes in $1"; then
 	return
     fi
+    folders=$(_getSVNfolders $1)
     cd $1
-    folders=""
-    externals=$(svn propget svn:externals -R|grep -v "^https"|cut -d' ' -f1|sort)
-    for d in $externals; do
-	#echo "externals: $d"
-	folders="$folders $d $(svn propget svn:externals $d|awk -v var=$d 'NF {print var"/"$2}'|sort)"
-    done
     # remove untracking files
     for d in $(svn st | awk '/^?/{print $2}'); do
         if [ -d $d ]; then
@@ -130,7 +132,7 @@ revert() {
         echo "svn revert -R $d"
 	svn revert -R $d
     done
-    svn up
+    #svn up
     cd - >/dev/null
     echo;echo "Revert '$1' done!"
     echo
@@ -321,7 +323,7 @@ usage() {
     printf "  %-${LABEL_LEN}s %s\n" "revert" "remove untracked files and revert specific files in 'top_dir' by SVN"
     printf "  %-${LABEL_LEN}s %s\n" "st" "check status of specific files in 'top_dir' by SVN"
     printf "  %-${LABEL_LEN}s %s\n" "showRev" "show all SVN revision(including externals) in 'top_dir'"
-    printf "  %-${LABEL_LEN}s %s\n" "syncRev <rev>" "sync SVN revision(including externals) in 'top_dir'"
+    printf "  %-${LABEL_LEN}s %s\n" "syncRev <rev>" "sync all SVN revision(including externals) in 'top_dir'"
     echo
     echo "Usage2: [FILE_LIST=\"file1 file2 ...\"] $(basename $0) <src_dir> <dst_dir> <OPTION> [-y]"
     echo "OPTION is one of below options:"
