@@ -225,9 +225,9 @@ dumpder() {
     _dump $2 der $1
 }
 
-RSA2048_PRIV_KEY_FILENAME="rotk-priv"
-RSA2048_PUB_KEY_FILENAME="rotk-public"
-RSA2048_CERT_FILENAME="rotk-cert"
+RSA2048_PRIV_KEY_FILENAME="selftest-priv"
+RSA2048_PUB_KEY_FILENAME="selftest-public"
+RSA2048_CERT_FILENAME="selftest-cert"
 selftest() {
     local folder=$(mktemp -d /tmp/self-test.XXXXXX)
     local i result fileList typeList
@@ -311,20 +311,143 @@ selftest() {
     [ "$1" == "keep" ] && echo "self-test folder: $folder" || rm -fr $folder
 }
 
+certInfo() {
+    local o options
+    options="\
+        enddate \
+	serial \
+	dates \
+	pubkey \
+	hash \
+	purpose \
+	C \
+    "
+    if ! echo "$options"|grep -qw $1; then
+        echo "certInfo only supports following arguments:"
+        for o in $options; do
+            echo -e "\t$o"
+        done
+        errExit 1 " '$1'"
+    fi
+    openssl x509 -$1 -noout -in $2
+}
+
+# arg1: input file
+# arg2: delimiter
+dumpHexFile() {
+    [ ! -f "$1" ] && {
+        errExit 3 "'$1'"
+    }
+    hexdump -v -e "/1 \"%02x$2\"" $1
+    echo
+}
+
+ROT_PRIVATE_KEY_FILENAME=rot-priv-key
+ROT_PRIVATE_KEY_FILE=$ROT_PRIVATE_KEY_FILENAME.pem
+ROT_PUBLIC_KEY_FILENAME=rotpk
+ROT_PUBLIC_KEY_FILE=$ROT_PUBLIC_KEY_FILENAME.der
+ROTPK_HASH_FILENAME=rotpk-sha256-hash
+ROTPK_HASH_BIN_FILE=$ROTPK_HASH_FILENAME.bin
+ROTPK_HASH_TXT_FILE=$ROTPK_HASH_FILENAME.txt
+
+UBOOT_FIT_SIG_KEY_FILENAME=uboot-fit-sig-priv
+UBOOT_FIT_SIG_KEY_FILE=$UBOOT_FIT_SIG_KEY_FILENAME.pem
+UBOOT_FIT_SIG_CERT_FILENAME=uboot-fit-sig-cert
+UBOOT_FIT_SIG_CERT_FILE=$UBOOT_FIT_SIG_CERT_FILENAME.pem
+
+UBOOT_IMG_AES_ENCRYPT_FILENAME=uboot-aes-encrypt-info
+UBOOT_IMG_AES_ENCRYPT_FILE=$UBOOT_IMG_AES_ENCRYPT_FILENAME.txt
+
+_dumpRealtekSecureBootInfo() {
+    local f
+    local titleLen=32
+    echo "~~~ Realtek Secure Boot Related Files ~~~"
+    printf "  %-${titleLen}s: %s\n" "Created Date"            "$(echo $(basename $PWD)|awk -F'-' '{printf $NF}')"
+    printf "  %-${titleLen}s: %s\n" "ROTPK Hash"              "$(cat $1-$ROTPK_HASH_TXT_FILE)"
+    #printf "  %-${titleLen}s: %s\n" "ROT Private Key"         "$1-$ROT_PRIVATE_KEY_FILE ($1_rotprivk_rsa.pem)"
+    #printf "  %-${titleLen}s: %s\n" "FIT Image Signature Key" "$1-$UBOOT_FIT_SIG_KEY_FILE (dev.key)"
+    #printf "  %-${titleLen}s: %s\n" "FIT Image Signature Certificate" "$1-$UBOOT_FIT_SIG_CERT_FILE (dev.crt)"
+    #printf "  %-${titleLen}s: %s\n" "Uboot Image Encryption Key" "$1-$UBOOT_IMG_AES_ENCRYPT_FILE ($1_aes_keys)"
+    printf "  %-${titleLen}s: %s\n" "ROT Private Key"         "$1_rotprivk_rsa.pem"
+    printf "  %-${titleLen}s: %s\n" "FIT Image Signature Key" "dev.key"
+    printf "  %-${titleLen}s: %s\n" "FIT Image Signature Certificate" "dev.crt"
+    printf "  %-${titleLen}s: %s\n" "Uboot Image Encryption Key" "$1_aes_keys"
+    echo;
+    echo "NOTE:"
+    echo "1. copy following files to <PI>/makecode/product-depconfig/bootloader/secure_boot/"
+    for f in $1_rotprivk_rsa.pem dev.key dev.crt $1_aes_keys README.txt; do
+        echo -e "\t$f"
+    done
+    echo "2. You must update ROTPK hash value in PI_BOOOTLOADER_SECURE_BOOT_ROTPK setting"
+    echo "   of the project configuration file if change the ROTPK."
+    echo "3. $1_rotprivk_rsa.pem & $1_aes_keys will be copy to following folder:"
+    echo "     <PI>/platform/bootloader/arm-trusted-firmware-key/files/"
+    echo "4. dev.key & dev.crt will be copy to following folder:"
+    echo "     <PI>/platform/bootloader/Verified_Boot/UBOOT_FIP_PRI_KEY/"
+}
+
+realtek() {
+    local folder
+    local today=$(date +%Y%m%d)
+    folder=$1-secure_boot-$today
+    [ -d $folder ] && {
+        if ! confirmYesNo "$folder exists, remove it"; then
+            return
+        fi
+    }
+    rm -fr $folder && mkdir -p $folder
+    cd $folder
+    # generate ROTKs(Root of Trust Keys)
+    echo -n "generate ROTKs(Root of Trust Keys; private + public) "
+    genPrivPEM $1-$ROT_PRIVATE_KEY_FILENAME 2048 >/dev/null 2>&1
+    genPubDER $1-$ROT_PRIVATE_KEY_FILE >/dev/null 2>&1
+    mv $(echo $1-$ROT_PRIVATE_KEY_FILENAME|sed "s/priv/public/g").der $1-$ROT_PUBLIC_KEY_FILE
+    ln -sf $1-$ROT_PRIVATE_KEY_FILE $1_rotprivk_rsa.pem
+    echo "[OK]" # TODO: error checking
+
+    # generate ROTPK(Root of Trust Public Key) hash file
+    echo -n "generate ROTPK(Root of Trust Public Key) hash file "
+    sha256sum $1-$ROT_PUBLIC_KEY_FILE|cut -d' ' -f1 > $1-$ROTPK_HASH_TXT_FILE
+    cat $1-$ROTPK_HASH_TXT_FILE|xxd -r -ps > $1-$ROTPK_HASH_BIN_FILE
+    echo "[OK]" # TODO: error checking
+
+    # generate key and certificate for U-Boot FIT Signature Verification
+    echo -n "generate RSA private key and certificate for U-Boot FIT signature verification "
+    genPrivPEM $1-$UBOOT_FIT_SIG_KEY_FILENAME 2048 >/dev/null 2>&1
+    genCertPEM $1-$UBOOT_FIT_SIG_KEY_FILE >/dev/null 2>&1
+    ln -sf $1-$UBOOT_FIT_SIG_KEY_FILE dev.key
+    ln -sf $1-$UBOOT_FIT_SIG_CERT_FILE dev.crt
+    echo "[OK]" # TODO: error checking
+
+    # generate AES-256 key and nonce information to file
+    echo -n "generate AES-256 key and nonce to file for uboot image encryption "
+    echo "ENC_KEY=$(openssl rand -hex 32)" > $1-$UBOOT_IMG_AES_ENCRYPT_FILE
+    echo -n "ENC_NONCE=$(openssl rand -hex 12)" >> $1-$UBOOT_IMG_AES_ENCRYPT_FILE
+    ln -sf $1-$UBOOT_IMG_AES_ENCRYPT_FILE $1_aes_keys
+    echo "[OK]" # TODO: error checking
+
+    _dumpRealtekSecureBootInfo $1 > README.txt
+    echo;echo;_dumpRealtekSecureBootInfo $1
+
+    cd - >/dev/null
+}
+
 usage() {
     echo "Usage: $progm [OPTION]"
     echo "OPTION is one of below options:"
-    printf "  %-${OPT_LEN}s %s\n" "priv <file> [bits]" "generate RSA private key(PKCS#1) in PEM format to {file}.pem"
-    printf "  %-${OPT_LEN}s %s\n" ""                   "default bit length is $DEFAULT_BIT_LEN if not specify 'bits'"
-    printf "  %-${OPT_LEN}s %s\n" "pair <file> [bits]" "same as option 'priv' and generate public key to {file}-public.pem"
-    printf "  %-${OPT_LEN}s %s\n" "pub <priv> {pem|der}" "generate RSA public key in PEM or DER format from private"
-    printf "  %-${OPT_LEN}s %s\n" ""                     "key 'priv' in PEM format; output file {priv}-public.{pem|der}"
+    printf "  %-${OPT_LEN}s %s\n" "priv <file> [bits]"    "generate RSA private key(PKCS#1) in PEM format to {file}.pem"
+    printf "  %-${OPT_LEN}s %s\n" ""                      "default bit length is $DEFAULT_BIT_LEN if not specify 'bits'"
+    printf "  %-${OPT_LEN}s %s\n" "pair <file> [bits]"    "same as option 'priv' and generate public key to {file}-public.pem"
+    printf "  %-${OPT_LEN}s %s\n" "pub <priv> {pem|der}"  "generate RSA public key in PEM or DER format from private"
+    printf "  %-${OPT_LEN}s %s\n" ""                      "key 'priv' in PEM format; output file {priv}-public.{pem|der}"
     printf "  %-${OPT_LEN}s %s\n" "pem2der <type> <file>" "convert file format from 'PEM' to 'DER', 'type' is {priv|pub|cert}"
     printf "  %-${OPT_LEN}s %s\n" "der2pem <type> <file>" "convert file format from 'DER' to 'PEM', 'type' is {priv|pub|cert}"
     printf "  %-${OPT_LEN}s %s\n" "cert <priv> {pem|der}" "generate self-signed X.509 certificate from private key 'priv' in"
     printf "  %-${OPT_LEN}s %s\n" ""                      "PEM format; output file {priv}-cert.{pem|der}"
     printf "  %-${OPT_LEN}s %s\n" "dumppem <type> <file>" "dump PEM file, 'type' is {priv|pub|cert}"
     printf "  %-${OPT_LEN}s %s\n" "dumpder <type> <file>" "dump DER file, 'type' is {priv|pub|cert}"
+    printf "  %-${OPT_LEN}s %s\n" "hexdump <file> [delim]" "display file content byte by byte as hexadecimal, with an"
+    printf "  %-${OPT_LEN}s %s\n" ""                       "option to use a delimiter between bytes"
     printf "\nNOTE:\n"
     printf "  1. if you see the following error message after using 'cert' option, remove RANDFILE=...\n"
     printf "     configuration lines in your openssl.cnf, it might resolve the issue:\n"
@@ -356,7 +479,8 @@ pub)
         errExit 2 "'$3'"
     esac
     ;;
-pem2der|der2pem|dumppem|dumpder|selftest)
+pem2der|der2pem|dumppem|\
+dumpder|selftest|certInfo)
     eval $1 \"\$2\" \"\$3\"
     ;;
 cert)
@@ -370,6 +494,9 @@ cert)
     *)
         errExit 2 "'$3'"
     esac
+    ;;
+hexdump)
+    dumpHexFile $2 "$3"
     ;;
 *)
     errExit 1 "'$1'"

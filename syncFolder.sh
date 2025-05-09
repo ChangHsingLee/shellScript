@@ -1,13 +1,16 @@
 #!/bin/sh
-[ -z "$FILE_LIST" ] && \
-FILE_LIST="\
-"
+
+# remove redundant whitespaces
+[ -n "$FILE_LIST" ] && \
+    FILE_LIST=$(echo $FILE_LIST)
 
 PRODUCT_LIST="\
     GPT-2742GX4X5v6 \
     GPT-2841GX2X2v10 \
     GPT-6841JL4L4v11 \
 "
+# remove redundant whitespaces
+PRODUCT_LIST=$(echo $PRODUCT_LIST)
 
 confirm=1
 
