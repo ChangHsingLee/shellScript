@@ -95,7 +95,7 @@ syncRevision() {
 }
 
 showRevision() {
-    local d folders maxlen
+    local d folders maxlen rev lastChange
     folders=$(_getSVNfolders $1)
     cd $1
     maxlen=0
@@ -103,11 +103,15 @@ showRevision() {
         [ $maxlen -lt ${#d} ] && maxlen=${#d}
     done
     # show revision
-    printf "%-${maxlen}s %s\n" "Path" "Revision"
+    printf "%-${maxlen}s %s %s\n" "Path" "Revision" "Last Change"
     eval printf \'=%.0s\' \{1..$maxlen\}
-    printf " ========\n"
+    printf " ======== ===========\n"
     for d in $folders; do
-        printf "%-${maxlen}s %s\n" $d "$(svn info $d|grep Revision|cut -d' ' -f2)"
+#        printf "%-${maxlen}s %s\n" $d "$(svn info $d|grep Revision|cut -d' ' -f2)"
+        read rev lastChange <<__END__
+$(svn info $d |awk '/^Revision|^Last Changed Rev/{printf $NF" "}')
+__END__
+    printf "%-${maxlen}s %-8s %s\n" $d "$rev" "$lastChange"
     done|sort -k 2 -n
     cd - >/dev/null
 }
