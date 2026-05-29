@@ -1,0 +1,269 @@
+#!/usr/bin/env python3
+import sys
+import os
+import json
+import glob
+
+# ==============================================================================
+# Model Pricing Configuration (USD per 1,000,000 tokens)
+# 此處定義的價格會用於計算估算費用。若 Anthropic 調整價格，可直接修改此處。
+# ==============================================================================
+PRICING = {
+    "default": {  # 對應 Sonnet 或 Gemini (目前環境實測費率)
+        "input": 2.0,
+        "cache_create": 2.5,
+        "cache_read": 0.2,
+        "output": 12.0
+    },
+    "opus": {     # Claude 3 Opus
+        "input": 15.0,
+        "cache_create": 18.75,
+        "cache_read": 1.5,
+        "output": 75.0
+    },
+    "haiku": {    # Claude 3.5 Haiku
+        "input": 0.8,
+        "cache_create": 1.0,
+        "cache_read": 0.08,
+        "output": 4.0
+    }
+}
+# ==============================================================================
+
+import argparse
+import subprocess
+
+parser = argparse.ArgumentParser(description="Export Claude Code session to Markdown.")
+parser.add_argument("session_id", nargs="?", help="Session ID, 'current', or 'latest'")
+parser.add_argument("output_file", nargs="?", help="Path to save the markdown file")
+parser.add_argument("-p", "--predict-pricing", action="store_true", help="Predict and display current model pricing from ccusage data")
+args = parser.parse_args()
+
+if args.predict_pricing:
+    print("Fetching usage data from ccusage and running linear regression...")
+    try:
+        result = subprocess.run(["ccusage", "session", "--json"], capture_output=True, text=True, check=True)
+        usage_data = json.loads(result.stdout)
+        
+        models_data = {}
+        for sess in usage_data.get("session", []):
+            for breakdown in sess.get("modelBreakdowns", []):
+                model = breakdown.get("modelName")
+                if model not in models_data:
+                    models_data[model] = []
+                
+                i = breakdown.get("inputTokens", 0) / 1000000.0
+                cc = breakdown.get("cacheCreationTokens", 0) / 1000000.0
+                cr = breakdown.get("cacheReadTokens", 0) / 1000000.0
+                o = breakdown.get("outputTokens", 0) / 1000000.0
+                cost = breakdown.get("cost", 0.0)
+                if cost > 0:
+                    models_data[model].append(([i, cc, cr, o], cost))
+
+        def transpose(A): return [list(col) for col in zip(*A)]
+        def mat_mul(A, B): return [[sum(a*b for a,b in zip(row, col)) for col in zip(*B)] for row in A]
+        def gauss_jordan(A, b):
+            n = len(b)
+            M = [row + [val] for row, val in zip(A, b)]
+            for i in range(n):
+                pivot_row = max(range(i, n), key=lambda r: abs(M[r][i]))
+                M[i], M[pivot_row] = M[pivot_row], M[i]
+                if abs(M[i][i]) < 1e-10: continue
+                pivot = M[i][i]
+                for j in range(i, n+1): M[i][j] /= pivot
+                for k in range(n):
+                    if k != i:
+                        factor = M[k][i]
+                        for j in range(i, n+1): M[k][j] -= factor * M[i][j]
+            return [max(0, M[i][n]) for i in range(n)]
+
+        print("\nPredicted Pricing based on usage history (USD per 1M tokens):")
+        print("PRICING = {")
+        for model, data_points in models_data.items():
+            if len(data_points) < 2:
+                continue # Not enough data for regression
+                
+            X = [dp[0] for dp in data_points]
+            y = [dp[1] for dp in data_points]
+            
+            # Ridge regression (alpha added to diagonal for stability)
+            alpha = 1e-5
+            Xt = transpose(X)
+            XtX = mat_mul(Xt, X)
+            for i in range(4): XtX[i][i] += alpha
+            
+            Xty = [sum(Xt[i][j]*y[j] for j in range(len(y))) for i in range(4)]
+            rates = gauss_jordan(XtX, Xty)
+            
+            print(f'    "{model}": {{')
+            print(f'        "input": {rates[0]:.2f},')
+            print(f'        "cache_create": {rates[1]:.2f},')
+            print(f'        "cache_read": {rates[2]:.2f},')
+            print(f'        "output": {rates[3]:.2f}')
+            print('    },')
+        print("}")
+        print("\n(Note: These values are estimated via Ridge Regression from your history.\nIf input data points are highly correlated, some rates might be skewed.)\n")
+        
+    except Exception as e:
+        print(f"Error predicting pricing: {e}")
+    
+    # If no session ID is provided, just exit after prediction
+    if not args.session_id:
+        sys.exit(0)
+
+if not args.session_id or not args.output_file:
+    print("Error: session_id and output_file are required for exporting.")
+    print("Usage: claude-export <session_id|current> <output_file> [-p]")
+    sys.exit(1)
+
+session_id_arg = args.session_id
+output_file = os.path.abspath(args.output_file)
+
+if session_id_arg.lower() in ["latest", "current"]:
+    # Find the most recently modified jsonl file in the projects directory
+    search_pattern = os.path.expanduser("~/.claude/projects/*/*.jsonl")
+    files = glob.glob(search_pattern)
+    if not files:
+        print("Error: No session logs found in ~/.claude/projects/")
+        sys.exit(1)
+    
+    latest_file = max(files, key=os.path.getmtime)
+    session_id = os.path.basename(latest_file).replace('.jsonl', '')
+    print(f"Auto-detected current Session ID: {session_id}")
+    jsonl_file = latest_file
+else:
+    session_id = session_id_arg
+    search_pattern = os.path.expanduser(f"~/.claude/projects/*/*{session_id}.jsonl")
+    matches = glob.glob(search_pattern)
+    if not matches:
+        print(f"Error: Could not find session log for ID: {session_id}")
+        sys.exit(1)
+    jsonl_file = matches[0]
+
+# Ensure the output directory exists
+out_dir = os.path.dirname(output_file)
+if out_dir:
+    os.makedirs(out_dir, exist_ok=True)
+
+try:
+    with open(jsonl_file, "r") as f:
+        lines = f.readlines()
+except Exception as e:
+    print(f"Error reading {jsonl_file}: {e}")
+    sys.exit(1)
+
+try:
+    with open(output_file, "w") as out:
+        out.write(f"# Claude Code Session Transcript\n")
+        out.write(f"**Session ID:** `{session_id}`\n\n---\n\n")
+        
+        accumulated_cost = 0.0
+        accumulated_in = 0
+        accumulated_out = 0
+        accumulated_cache = 0
+        hidden_turns = 0
+        model = "unknown"
+        total_session_cost = 0.0
+
+        for line in lines:
+            try:
+                data = json.loads(line)
+                if "message" not in data:
+                    continue
+
+                role = data["message"].get("role", "")
+                content = data["message"].get("content", [])
+
+                if role in ["user", "assistant"]:
+                    text_blocks = []
+                    has_tool_use = False
+
+                    for block in content:
+                        if isinstance(block, dict):
+                            if block.get("type") == "text" and block.get("text", "") != "":
+                                text_blocks.append(block.get("text", ""))
+                            elif block.get("type") == "tool_use":
+                                has_tool_use = True
+
+                    # 判斷是否為無效的空節點
+                    if not text_blocks and not has_tool_use:
+                        continue
+
+                    if role == "assistant":
+                        usage = data["message"].get("usage", {})
+                        if usage:
+                            model = data["message"].get("model", model)
+                            in_tok = usage.get("input_tokens", 0)
+                            cache_in_tok = usage.get("cache_creation_input_tokens", 0)
+                            cache_read_tok = usage.get("cache_read_input_tokens", 0)
+                            out_tok = usage.get("output_tokens", 0)
+
+                            cost = 0.0
+
+                            # 判斷使用的模型並套用對應費率
+                            rate = PRICING["default"]
+                            if "opus" in model.lower():
+                                rate = PRICING["opus"]
+                            elif "haiku" in model.lower():
+                                rate = PRICING["haiku"]
+
+                            cost = (
+                                in_tok * rate["input"] +
+                                cache_in_tok * rate["cache_create"] +
+                                cache_read_tok * rate["cache_read"] +
+                                out_tok * rate["output"]
+                            ) / 1000000.0
+
+                            accumulated_cost += cost
+                            accumulated_in += in_tok
+                            accumulated_out += out_tok
+                            accumulated_cache += cache_read_tok
+                            total_session_cost += cost
+
+                    if text_blocks:
+                        out.write(f"## {role.capitalize()}\n\n")
+                        out.write("".join(text_blocks))
+                        out.write("\n\n")
+
+                        if role == "assistant" and (accumulated_in > 0 or accumulated_out > 0):
+                            note = f" (Includes {hidden_turns} invisible tool-use turns)" if hidden_turns > 0 else ""
+                            out.write(f"> *Model: {model} | Tokens: {accumulated_in} In, {accumulated_cache} Cache, {accumulated_out} Out | Est. Cost: ${accumulated_cost:.5f}{note}*\n\n")
+                            accumulated_cost = 0.0
+                            accumulated_in = 0
+                            accumulated_out = 0
+                            accumulated_cache = 0
+                            hidden_turns = 0
+
+                        out.write("---\n\n")
+                    elif role == "assistant" and has_tool_use:
+                        hidden_turns += 1
+                        out.write(f"## {role.capitalize()}\n\n")
+                        out.write(f"> *[呼叫 Tool 處理中 - 費用與 Token 累積至下一則回覆]*\n\n")
+                        out.write("---\n\n")
+            except json.JSONDecodeError:
+                continue
+
+        # 寫入總花費
+        out.write(f"## Session Summary\n\n")
+        out.write(f"> **Total Estimated Cost (Script): ${total_session_cost:.5f}**\n\n")
+        
+        try:
+            result = subprocess.run(["ccusage", "session", "--json"], capture_output=True, text=True, check=True)
+            usage_data = json.loads(result.stdout)
+            actual_cost = None
+            for sess in usage_data.get("session", []):
+                if sess.get("period") == session_id:
+                    actual_cost = sess.get("totalCost")
+                    break
+            
+            if actual_cost is not None:
+                out.write(f"> **Total Actual Cost (ccusage): ${actual_cost:.5f}**\n\n")
+            else:
+                out.write(f"> **Total Actual Cost (ccusage): N/A (Session not found)**\n\n")
+        except Exception as e:
+            out.write(f"> **Total Actual Cost (ccusage): N/A (Sync failed: {e})**\n\n")
+except Exception as e:
+    print(f"Error writing to {output_file}: {e}")
+    sys.exit(1)
+
+print(f"Successfully exported transcript to:\n{output_file}")
